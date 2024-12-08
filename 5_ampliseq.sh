@@ -1,9 +1,12 @@
-nextflow run ./ampliseq \
-    -profile singularity \
-    --input_fasta ./ASV_infered2/mice_ASV.fasta \
-    --outdir "Ampliseq_results" \
+nextflow run /soft/nf-core-ampliseq_2.12.0/2_12_0 \
+    -profile apptainer \
+    --input_fasta /media/sf_compartida/mice_TFM/mice_ASV/77_LB3C2_M0.fasta \
+    --outdir /media/sf_compartida/mice_TFM/Ampliseq_results \
     --FW_primer AGRGTTYGATYHTGGCTCAG \
     --RV_primer CGGTTACCTTGTTACGACTT \
-    --qiime_ref_taxonomy silva=138 \
-    
-        #--metadata "mice_metadata.tsv" \
+    --save_intermediates 
+
+
+ #--metadata "mice_metada.tsv" 
+
+
