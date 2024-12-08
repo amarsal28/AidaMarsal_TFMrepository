@@ -1,11 +1,6 @@
 #!/bin/bash
 
 # Control de qualitat amb NanoPlot
-# Descarreguem el paquet
-if ! pip show NanoPlot > /dev/null 2>&1; then
-    pip install NanoPlot
-fi
-
 # Generem un bucle per recorrer tots els arxius i fer el control de qualitat
 for fastq in mice_fastq/*.fastq.gz;
 do
@@ -21,13 +16,6 @@ done
 
 
 # Control de qualitat amb FastQC
-# Descarreguem el paquet
-if ! command -v fastqc &> /dev/null
-then
-    sudo apt update
-    sudo apt install -y fastqc
-fi
-
 # Executem el codi
 mkdir -p QC_Results/FastQC_results
 fastqc -o QC_Results/FastQC_results mice_fastq/*.fastq.gz
