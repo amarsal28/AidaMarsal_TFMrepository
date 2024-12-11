@@ -16,12 +16,9 @@ done
 
 
 # Control de qualitat amb FastQC
-# Executem el codi
 mkdir -p QC_Results/FastQC_results
 fastqc -o QC_Results/FastQC_results mice_fastq/*.fastq.gz
 
 
-
 # Generació de document multiQC
-#Execució del codi
 multiqc ./QC_Results/ --filename multiQC_report --outdir QC_Results

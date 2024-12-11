@@ -25,7 +25,10 @@ do
     fastq_name=$(basename "$fastq" .fastq.gz)
 
     # Executem fasplong
-    fastplong -i "$fastq" -q 15 -l 1000  --out ./mice_fastq_processed/"$fastq_name"_trimmed2.fastq.gz
+    fastplong -i "$fastq" -q 15 -l 1000 \
+    -out ./mice_fastq_processed/"$fastq_name"_trimmed2.fastq.gz \
+    -h ./mice_fastp_reports/"$fastq_name"_fastp.html \
+    -j ./mice_fastp_reports/"$fastq_name"_fastp.json
 done
 
 
@@ -44,13 +47,10 @@ do
     NanoPlot --fastq "$fastq" -o QC_Results_postProcessing/NanoPlot_QC/"$fastq_name" -t 4 --title "$fastq_name Post-processing Report" --prefix "$fastq_name" --plots kde dot
 done
 
-
 # Control de qualitat amb FastQC
 # Executem el codi
 mkdir -p QC_Results_postProcessing/FastQC_results
 fastqc -o QC_Results_postProcessing/FastQC_results mice_fastq_processed/*.fastq.gz
-
-
 
 # Generació de document multiQC
 #Execució del codi

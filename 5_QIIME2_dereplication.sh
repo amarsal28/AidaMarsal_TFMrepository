@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# Primer és necessari crear i activar un ambien Qiime2 a conda
-# conda env create -n uoc_tfm_qiime2 --file https://data.qiime2.org/distro/amplicon/qiime2-amplicon-2024.2-py38-linux-conda.yml
-# conda activate uoc_tfm_qiime2
-
 mkdir qiime2/dereplicates
 
 # Importem les seqüències

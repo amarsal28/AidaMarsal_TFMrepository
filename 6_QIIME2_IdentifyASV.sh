@@ -23,7 +23,3 @@ qiime feature-table summarize \
     --i-table qiime2/clustered/table-or-90.qza \
     --o-visualization qiime2/clustered/table-or-90.qzv \
     --m-sample-metadata-file mice_metadata.tsv
-
-qiime tools export \
-    --input-path qiime2/clustered/table-or-90.qzv \
-    --output-path qiime2/clustered/table-or-90
