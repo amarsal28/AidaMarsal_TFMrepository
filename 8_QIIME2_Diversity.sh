@@ -10,7 +10,7 @@ qiime phylogeny align-to-tree-mafft-fasttree \
     --o-masked-alignment qiime2/alignment/masked-aligned-rep-seqs-or-90.qza \
     --o-tree qiime2/alignment/unrooted-tree.qza \
     --o-rooted-tree qiime2/alignment/rooted-tree.qza
-    # --output-dir qiime2/alignment --només això i no cal que posem directori a tots?
+    
 
 qiime tools export \
     --input-path qiime2/alignment/rooted-tree.qza \
@@ -25,14 +25,13 @@ qiime diversity core-metrics-phylogenetic \
     --p-sampling-depth 15000 \
     --m-metadata mice_metadata.tsv \
     --output-dir qiime2/diversity/core-metrics-results
-fi
 
 # Associació de metadata i alfa-diversitat amb shannon-index
 qiime diversity alpha-group-significance \
     --i-alpha-diversity qiime2/diversity/core-metrics-results/shannon_vector.qza \
     --m-metadata-file mice_metadata.tsv \
     --o-visualization qiime2/diversity/shannon-group-significance.qzv
-fi 
+
 
 # Significance per variables categòriques. 
 # Per variables continues hauriem de fer servir correlation, però en el nostre cas no tenim.
@@ -43,21 +42,21 @@ qiime diversity beta-group-significance \
     --m-metadata-file mice_metadata.tsv \
     --m-metadata-column genotype \
     --o-visualization qiime2/diversity/beta-group-genotype.qzv
-fi
+
 
 qiime diversity beta-group-significance \
     --i-distance-matrix qiime2/diversity/unweighted_unifrac_distance_matrix.qza \
     --m-metadata-file mice_metadata.tsv \
     --m-metadata-column family \
     --o-visualization qiime2/diversity/beta-group-family.qzv
-fi 
+ 
 
 qiime diversity beta-group-significance \
     --i-distance-matrix qiime2/diversity/unweighted_unifrac_distance_matrix.qza \
     --m-metadata-file mice_metadata.tsv \
     --m-metadata-column "HCC (YES/NO)" \
     --o-visualization qiime2/diversity/beta-group-genotype.qzv
-fi 
+
 
 # Alpha diversitat i rarefacció [p-max-depth depen de la mostra amb menys lectures]
 
@@ -68,4 +67,4 @@ qiime diversity alpha-rarefaction \
     --p-metrics shannon faith_pd\
     --m-metadata-file mice_metadata.tsv \
     --o-visualization qiime/diversity/alpha-rarefaction.qzv
-fi
+

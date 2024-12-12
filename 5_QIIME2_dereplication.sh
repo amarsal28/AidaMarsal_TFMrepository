@@ -4,7 +4,7 @@ mkdir qiime2/dereplicates
 
 # Importem les seqüències
 qiime tools import \
-    --input-path mice_fasta/mice_all_fasta.fasta \
+    --input-path mice_data/mice_fasta/mice_all_fasta.fasta \
     --output-path qiime2/sequences.qza \
     --type 'SampleData[Sequences]'
 
