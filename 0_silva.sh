@@ -5,4 +5,4 @@
 mkdir silva_data
 wget https://data.qiime2.org/2023.7/common/silva-138-99-seqs.qza -O silva_data/silva-138-99-seqs.qza
 wget https://data.qiime2.org/2023.7/common/silva-138-99-tax.qza -O silva_data/silva-138-99-tax.qza
-wget https://resources.qiime2.org/2024.5/common/silva-138-99-nb-classifier.qza o- silva_data/silva-138-99-nb-classifier.qza
+wget https://resources.qiime2.org/2024.5/common/silva-138-99-nb-classifier.qza -O silva_data/silva-138-99-nb-classifier.qza
