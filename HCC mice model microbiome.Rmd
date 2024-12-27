@@ -1,0 +1,353 @@
+---
+title: "HCC mice model microbiome"
+author: "Aida Marsal"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Activem llibreries necessàries pel codi
+
+```{r library}
+library(qiime2R)
+library(phyloseq)
+library(vegan)
+library(DESeq2)
+library(ggplot2)
+library(kableExtra)
+library(xtable)
+library(gridExtra)
+theme_set(theme_bw())
+```
+
+## Creem un objecte de Phyloseq a partir dels artefactes de qiime2
+
+```{r obj phyloseq creation}
+physeq <- qza_to_phyloseq(
+  features = "qiime2/clustered/table-or-90.qza",
+  tree = "qiime2/alignment/rooted-tree.qza",
+  taxonomy = "qiime2/tax_class/table_tax_sklearn.qza",
+  metadata = "mice_data/mice_metadata.tsv"
+)
+
+physeq
+```
+
+## Preparació de les dades per l'anàlisi terciàri amb Phyloseq
+
+En primer lloc, eliminem els taxons que no corresponen a microorganismes, com cloroplasts, mitocondries i eucariotes. 
+
+```{r eliminació cl, mt, euk}
+
+filterPhyla <- c("Chloroplast", "Mitochondria", "d__Eukaryota")
+physeq1 <- subset_taxa(physeq, !Kingdom %in% filterPhyla)
+physeq1 <- subset_taxa(physeq1, !Phylum %in% filterPhyla)
+physeq1 <- subset_taxa(physeq1, !Class %in% filterPhyla)
+physeq1 <- subset_taxa(physeq1, !Order %in% filterPhyla)
+physeq1 <- subset_taxa(physeq1, !Family %in% filterPhyla)
+physeq1 <- subset_taxa(physeq1, !Genus %in% filterPhyla)
+physeq1
+```
+
+A més, en formar OTUs es tendeix a sobreestimar la riquesa d'una mostra, és a dir el nombre d'unitats taxonòmiques en una mostra. Per evitar falsos positius, farem un filtratge segons prevalència.  
+
+```{r càlcul prevalències}
+# Calculem prevalències
+prevdf = apply(X = otu_table(physeq1),
+               MARGIN = ifelse(taxa_are_rows(physeq1), yes = 1, no = 2),
+               FUN = function(x){sum(x > 0)})
+
+# Agreguem la taxonomia
+prevdf = data.frame(Prevalence = prevdf,
+                    TotalAbundance = taxa_sums(physeq1),
+                    tax_table(physeq1))
+
+plyr::ddply(prevdf, "Phylum", function(df1){cbind(mean(df1$Prevalence),sum(df1$Prevalence))}) -> dfprev
+kable(dfprev)
+```
+
+Filtrem els phylums que només presenten 1 read (perque és molt probable que siguin falsos positius), pel que primer generem un vector amb tots els taxons que volem filtrar i després apliquem el filtre (incloent també l'eliminació dels NA): 
+
+```{r eliminació taxons per prevalències}
+# Definim taxons a filtrar
+filterPhyla2 = c("Fusobacteriota", NA)
+
+# Procedim amb el filtratge
+physeq2 = subset_taxa(physeq1, !Phylum %in% filterPhyla2)
+physeq2
+```
+
+També podem eliminar els taxons que no s'observen més de dos vegades en almenys un 10% de les mostres:
+
+```{r eliminació segons distribució}
+physeq3 <- filter_taxa(physeq2, function(x) sum(x > 2) > (0.1*length(x)), TRUE)
+physeq3
+```
+
+També podem filtrar per abundància relativa. En aquest cas filtrem els taxons amb una abundància inferior al 1% - **m'agrada aquest filtre però en aquest punt ja no ens filtra res**. 
+
+```{r eliminació segons abundància}
+# Transformem els _read counts_ en porcentatge
+read_count = transform_sample_counts(physeq3, function(x) x / sum(x))
+
+# Filtrem els taxons amb abundància inferior al 5%
+physeq4 <- filter_taxa(physeq3, function(x) sum(x) > 5, TRUE)
+physeq4
+```
+
+Grafiquem la distribució de _read counts_ per número de mostra del nostre objecte phyloseq:
+
+```{r distribució read counts}
+sample_sum_df <- data.frame(sum = sample_sums(physeq3))
+
+ggplot(sample_sum_df, aes(x = sum)) + 
+  geom_histogram(color = "black", fill = "grey", binwidth = 2500) +
+  ggtitle("Distribution of sample sequencing depth") + 
+  xlab("Read counts") +
+  theme(axis.title.y = element_blank())
+```
+
+## Mostrem les dades després del filtratge
+
+#### Taula de _read counts_:
+
+```{r taula de read counts}
+head(otu_table(physeq3)) %>%
+  kable(otu_table(physeq3), format = "html", col.names = colnames(otu_table(physeq3))) %>%
+  kable_styling() %>%
+  kableExtra::scroll_box(width = "100%", height = "350px")
+```
+
+#### Taula de taxonomies:
+
+```{r taula taxonomies}
+
+head(tax_table(physeq3)) %>%
+  kable(format = "html", col.names = colnames(tax_table(physeq3))) %>%
+  kable_styling() %>%
+  kableExtra::scroll_box(width = "100%", height = "320px")
+```
+
+Finalment, mostrem una taula que inclou la metadata, i taxonomia i abundància del taxon més abundant de cada mostra
+
+```{r taula resum}
+df <- psmelt(physeq3)
+
+kable(df, format = "html", col.names = colnames(df)) %>%
+  kable_styling() %>%
+  kableExtra::scroll_box(width = "100%", height = "400px")
+```
+
+### Data frames per característiques de les mostres
+També es pot fer un filtratge segons les metadades. Per exemple, segons el genotip dels ratolins: 
+
+```{r genotype WT-KO}
+physeq.WT = subset_samples(physeq3, Genotype == "WT")
+physeq.KO = subset_samples(physeq3, Genotype == "KO")
+```
+
+# Corva de rarefacció
+```{r rarefacció}
+otu_rare = as.data.frame(t(otu_table(physeq3)))
+rarecurve(otu_rare, step = 1000, label = T)
+```
+
+# Mesures de diversitat
+
+## Mesura de la riquesa - alfa-diversistat
+
+```{r richness estimates graphic}
+alpha_means = c("Observed", "Chao1", "ACE", "Shannon", "Simpson")
+
+# Alpha-diversitat segons genotip
+plot_richness(physeq3, color = "Genotype", "Genotype", measures = alpha_means) + 
+  geom_boxplot(aes(fill = Genotype), alpha=0.1)
+
+```
+
+Amb un test ANOVA comprovarem si hi ha un efecte significatiu de la diversitat alfa segons el genotip
+
+```{r richness estimates}
+# Generem dataframe amb mesures de diversitat:
+alpha_diversity <- estimate_richness(physeq3, measures = alpha_means)
+
+# Combinem amb la metadata i calculem un ANOVA (calculat per l'índex Shannon)
+alpha_diversity_data <- cbind(sample_data(physeq3), alpha_diversity)
+physeq3.genotype.anova.sh <- aov(Shannon ~ Genotype, alpha_diversity_data)
+
+physeq3.genotype.anova.sh.table <- xtable(physeq3.genotype.anova.sh)
+kable(physeq3.genotype.anova.sh.table, caption = "Taula ANOVA - Shannon Index Diversity", digits = 3, format = "html")
+
+# Combinem amb la metadata i calculem un ANOVA (calculat per l'índex Chao1)
+physeq3.genotype.anova.ch1 <- aov(Shannon ~ Genotype, alpha_diversity_data)
+
+physeq3.genotype.anova.ch1.table <- xtable(physeq3.genotype.anova.ch1)
+kable(physeq3.genotype.anova.ch1.table, caption = "Taula ANOVA - Chao1 Index Diversity", digits = 3, format = "html")
+
+```
+
+## Diversitat Beta
+
+Anàlisi de tipus PCoA
+
+```{r PCoA}
+physeq3.mds.unifrac <- ordinate(physeq3, method = "MDS", distance = "unifrac")
+evalues_unifrac <- physeq3.mds.unifrac$values$Eigenvalues
+pord1 <- plot_ordination(physeq3, physeq3.mds.unifrac, color = "Genotype") +
+  labs(col = "Genotype") +
+  coord_fixed(sqrt(evalues_unifrac[2]/ evalues_unifrac[1]))
+
+
+physeq3.mds.bray <- ordinate(physeq3, method = "MDS", distance = "bray")
+evalues_bray <- physeq3.mds.bray$values$Eigenvalues
+pord2 <- plot_ordination(physeq3, physeq3.mds.bray, color = "Genotype") +
+  labs(col = "Genotype") +
+  coord_fixed(sqrt(evalues_bray[2]/ evalues_bray[1]))
+
+grid.arrange(pord1, pord2)
+
+```
+Anàlisi de tipus DPCoA
+
+```{r DPCoA}
+physeq3.dpcoa.unifrac <- ordinate(physeq3, method = "DPCoA", distance = "dpcoa")
+evalues_dpcoa <- physeq3.dpcoa.unifrac$eig
+pord3 <- plot_ordination(physeq3, physeq3.dpcoa.unifrac, color = "Genotype", shape = "HCC..YES.NO.") +
+  labs(col = "Genotype") +
+  coord_fixed(sqrt(evalues_dpcoa[2] / evalues_dpcoa[1])) +
+  scale_color_manual(values = c("#a6cee3", "#b2df8a")) + 
+  scale_fill_manual(values = c("#a6cee3", "#b2df8a")) +
+  geom_point(size=4)
+pord3
+
+
+```
+
+Busquem diferències significatives entre mostres (PERMANOVA):
+
+```{r permanova}
+physeq.bray <- phyloseq::distance(physeq3, method= "bray")
+sam <- data.frame(sample_data(physeq3))
+adonis2(physeq.bray ~ Genotype, data = sam, permutations= 999)
+```
+
+
+## Anàlisi d'abundància
+Per tenir una visió general de la composició de les mostres farem servir gràfics de barres apilades. 
+
+```{r top100 abundancia}
+# Obtenim els taxons més abundants (top 100)
+top100_OTUs <- names(sort(taxa_sums(physeq3), TRUE)[1:100])
+
+# Els filtrem utilitzant prune_taxa
+top100_filter <- prune_taxa(top100_OTUs, physeq3)
+
+# Grafiquem per phylum
+plot_bar(top100_filter, fill = "Phylum") +
+  geom_bar(aes(color=Phylum, fill=Phylum), stat="identity", position="stack")
+
+# Grafiquem per familia
+plot_bar(top100_filter, fill = "Family") +
+  geom_bar(aes(color=Family, fill=Family), stat="identity", position="stack")
+```
+
+Aquest procés també es pot repetir fent-ho segons categories, per exemple, segons el genotip: 
+
+```{r top 100 abundancia per genotype}
+top100_filter_genotype <- merge_samples(top100_filter, "Genotype")
+top100_filter_genotype_t <- transform_sample_counts(top100_filter_genotype, function(x) 100 * x/sum(x))
+
+
+# Grafiquem per familia
+plot_bar(top100_filter_genotype_t, fill = "Family") +
+  geom_bar(aes(color=Family, fill=Family), stat="identity", position="stack")
+```
+
+### Anàlisi diferencial d'abundància amb DESeq2
+
+Per determinar quins taxons estan més representats en una condició vs una altra, es fa servir el mateix procés que en l'anàlisi d'expressió diferencial de gens (ie RNA-seq). Per això, es fa servir el paquet DESeq2. 
+
+Per realitzar l'anàlisi diferencial hem de corregir per: la mida de les mostres (num de reads), i la variabilitat. 
+
+Primer generem un objecte DESeq2: 
+
+```{r objecte DESeq2}
+physeq_ddseq = phyloseq_to_deseq2(physeq3, ~Genotype)
+
+# Normalitzem les mostres
+gm_mean = function(x, na.rm=TRUE){
+    exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+}
+geoMeans = apply(counts(physeq_ddseq), 1, gm_mean)
+physeq_ddseq = estimateSizeFactors(physeq_ddseq, geoMeans = geoMeans)
+
+physeq_ddseq = DESeq(physeq_ddseq, fitType = "local")
+
+```
+Fins ara hem transformat l'objecte `phyloseq` en `DESeq`, i hem normalitzat els comptes i realitzat un test paramètric de correcció (Benjamini-Hochberg). 
+
+Ara ja podem revisar els resultats: 
+
+```{r DESesq results}
+res = results(physeq_ddseq)
+res = res[order(res$padj, na.last=NA), ]
+
+# Mirem els contrastos entre grup WT i grup KO (positiu indicarà més abundant en WT):
+res.WT.KO <- results(physeq_ddseq, contrast=c("Genotype", "WT", "KO"))
+
+res.WT.KO %>%
+  kable(format = "html", col.names = colnames(res.WT.KO)) %>%
+  kable_styling() %>%
+  kableExtra::scroll_box(width = "100%", height = "400px")
+```
+
+Ara establim un llindar de significancia estadística pels valors de p-valor adjustats
+
+```{r llindar de significacia abundancies}
+# Establim el llindar
+alpha = 0.5
+
+# Ordanem la taula de resultats
+res.WT.KO = res.WT.KO[order(res.WT.KO$padj, na.last=NA), ]
+
+# Filtrem segons el llindar
+sigtab = res.WT.KO[(res.WT.KO$padj < alpha), ]
+
+# Agregruem la taxonomia a la taula
+sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(physeq3)[rownames(sigtab), ], "matrix"))
+
+# Manipulaciones varias para finalmente graficar los resultados
+sigtabgen = subset(sigtab, !is.na(Family))
+# Phylum order
+x = tapply(sigtabgen$log2FoldChange, sigtabgen$Phylum, function(x) max(x))
+x = sort(x, TRUE)
+sigtabgen$Phylum = factor(as.character(sigtabgen$Phylum), levels=names(x))
+# Family order
+x = tapply(sigtabgen$log2FoldChange, sigtabgen$Family, function(x) max(x))
+x = sort(x, TRUE)
+sigtabgen$Family = factor(as.character(sigtabgen$Family), levels=names(x))
+ggplot(sigtabgen, aes(y=Family, x=log2FoldChange, color=Phylum)) + 
+    geom_vline(xintercept = 0.0, color = "gray", size = 0.5) +
+    geom_point(size=4) + 
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5, size = 10), axis.text.y = element_text(size = 13), legend.text = element_text(size = 13) )
+```
+
+També ho podem veure amb una taula això: 
+
+```{r diferencies abundancia}
+posigtab = sigtab[sigtab[, "log2FoldChange"] > 0, ]
+posigtab = posigtab[, c("baseMean", "log2FoldChange", "lfcSE", "padj", "Phylum", "Class", "Family", "Genus")]
+posigtab
+```
+
+
+Això fora:
+
+```{r red co-ocurrencia}
+plot_net(physeq3, type="taxa", point_label = "Family", point_size = 10, point_alpha = 0.5, maxdist = 0.5, color = "Phylum", distance = "bray", laymeth = "auto")
+```
+
+
