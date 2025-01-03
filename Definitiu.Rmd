@@ -3,9 +3,10 @@ title: "Definitu"
 author: "Aida Marsal"
 date: "`r Sys.Date()`"
 output:
-  pdf_document: default
+  word_document: default
   html_document:
     df_print: paged
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -24,7 +25,6 @@ library(ggpubr)
 library(kableExtra)
 library(xtable)
 library(gridExtra)
-library(RColorBrewer)
 ```
 
 # 1. Creació d'un objecte Phyloseq
@@ -44,7 +44,9 @@ Es mostra les corves de rarefacció de les mostres sense pre-processat, que no p
 
 ```{r rarefacció}
 otu_rare = as.data.frame(t(otu_table(physeq)))
-rarecurve(otu_rare, step = 100, label = T, col = brewer.pal(nrow(otu_rare), name = "Set3"))
+jpeg("R_analysis/rarefaccio1.jpeg", quality = 100)
+rarecurve(otu_rare, step = 100, label = T, col = rainbow(nrow(otu_rare)))
+dev.off()
 ```
 
 Com podem veure, no podem arribar a coneixer la riquesa total de les mostres, pel que caldrà filtrar-les per veure si millorem aquest paràmetre. 
@@ -104,7 +106,9 @@ Un cop hem fet tots aquests pasos de filtratge, tornem a generar les corbes de r
 
 ```{r rarefacció2}
 otu_rare2 = as.data.frame(t(otu_table(physeq3)))
-rarecurve(otu_rare2, step = 100, label = T, col= brewer.pal(nrow(otu_rare2), name = "Set3"))
+jpeg("R_analysis/rarefaccio2.jpeg", quality = 100)
+rarecurve(otu_rare2, step = 100, label = T, col= rainbow(nrow(otu_rare2)))
+dev.off()
 ```
 
 # 3. Mesura de la riquesa: alfa-diversistat
@@ -141,7 +145,9 @@ alpha_div_genotype_df
 # Representem l'alpha-diversitat segons genotip
 plot_richness(physeq3, color = "Genotype", "Genotype", measures = alpha_means) + 
   geom_boxplot(aes(fill = Genotype), alpha=0.1) +
-  stat_compare_means(aes(label = ..p.signif..), method = "wilcox.test", comparisons = list(c("WT", "KO")), label = "p.format")
+  stat_compare_means(aes(label = ..p.signif..), method = "wilcox.test", comparisons = list(c("WT", "KO")), label = "p.format") +
+  ggtitle("Alpha-diversity - Genotype")
+ggsave("alfa-div_genotype.jpeg", device = "jpeg", path = "R_analysis", height = 8, width = 7)
 ```
 
 ## En funció de l'aparició de tumor, per cada genotip
@@ -174,7 +180,9 @@ alpha_div_HCC_WT_df
 # Representació gràfica
 plot_richness(physeq.WT, color = "HCC..YES.NO.", "HCC..YES.NO.", measures = alpha_means) + 
   geom_boxplot(aes(fill = HCC..YES.NO.), alpha=0.1) +
-  stat_compare_means(aes(label = ..p.signif..), method = "wilcox.test", comparisons = list(c("YES", "NO")), label = "p.format")
+  stat_compare_means(aes(label = ..p.signif..), method = "wilcox.test", comparisons = list(c("YES", "NO")), label = "p.format") +
+  ggtitle("Alpha-diversity - HCC, WT group")
+ggsave("alfa-div_WT.jpeg", device = "jpeg", path = "R_analysis", height = 8, width = 7)
 ```
 
 ```{r alfa-diversitat per tumor KO}
@@ -197,7 +205,9 @@ alpha_div_HCC_KO_df
 # Representació gràfica
 plot_richness(physeq.KO, color = "HCC..YES.NO.", "HCC..YES.NO.", measures = alpha_means) + 
   geom_boxplot(aes(fill = HCC..YES.NO.), alpha=0.1) +
-  stat_compare_means(aes(label = ..p.signif..), method = "wilcox.test", comparisons = list(c("YES", "NO")), label = "p.format")
+  stat_compare_means(aes(label = ..p.signif..), method = "wilcox.test", comparisons = list(c("YES", "NO")), label = "p.format") +
+  ggtitle("Alfa-diversity - HCC, KO group")
+ggsave("alfa-div_KO.jpeg", device = "jpeg", path = "R_analysis",  height = 8, width = 7)
 ```
 
 ```{r alfa-diversitat per tumor total }
@@ -220,16 +230,9 @@ alpha_div_tumor_df
 # Representació gràfica
 plot_richness(physeq3, color = "HCC..YES.NO.", "HCC..YES.NO.", measures = alpha_means) + 
   geom_boxplot(aes(fill = HCC..YES.NO.), alpha=0.1) +
-  stat_compare_means(aes(label = ..p.signif..), method = "wilcox.test", comparisons = list(c("YES", "NO")), label = "p.format")
-```
-
-## En funció de la gàbia
-
-```{r alpha diversitat per gàbia}
-# Alpha-diversitat segons gàbia - no he fet el test, depén de si finalment ho afegeixo al treball. 
-plot_richness(physeq3, color = "Brood", "Brood", measures = alpha_means) + 
-  geom_boxplot(aes(fill = Brood), alpha=0.1) +
-  stat_compare_means(aes(label = ..p.signif..), method = "kruskal.test", comparisons = list(c("LB3C3c", "LB3C6a", "LB3C2a", "LB3C2b", "LB3C2c", "LB3C5a", "LB3C5b", "LB4C2d", "LB4C2a", "LB4C1a")), label = "p.format")
+  stat_compare_means(aes(label = ..p.signif..), method = "wilcox.test", comparisons = list(c("YES", "NO")), label = "p.format") +
+  ggtitle("Alfa-diversity - HCC")
+ggsave("alfa-div_HCCt.jpeg", device = "jpeg", path = "R_analysis",  height = 8, width = 7)
 ```
 
 # 4. Mesura de la riquesa: beta-diversitat
@@ -264,24 +267,26 @@ physeq3.mds.unifrac <- ordinate(physeq3, method = "MDS", distance = "unifrac")
 evalues_unifrac <- physeq3.mds.unifrac$values$Eigenvalues
 
 # Gràfic d'ordenades per distància Unifrac
-ordinates_unifrac_genotype <- plot_ordination(physeq3, physeq3.mds.unifrac, color = "Genotype", shape = "HCC..YES.NO.") +
+ordinates_unifrac_genotype <- plot_ordination(physeq3, physeq3.mds.unifrac, color = "Genotype") +
   labs(col = "Genotype") +
   coord_fixed(sqrt(evalues_unifrac[2]/ evalues_unifrac[1])) +
   stat_ellipse() +
   annotate("text", x = -0.9, y = 0.6, label = Pvalue_permanova_unifrac_genotype, hjust = 0, size = 3)
 ordinates_unifrac_genotype
+ggsave("beta-div_Genotype_unifrac.jpeg", device = "jpeg", path = "R_analysis",  height = 8, width = 7)
   
 # Càlcul matriu de distància Bray-Curtis
 physeq3.mds.bray <- ordinate(physeq3, method = "MDS", distance = "bray")
 evalues_bray <- physeq3.mds.bray$values$Eigenvalues
 
 # Gràfic d'ordenades per distància Bray-Curtis
-ordinates_bray_genotype <- plot_ordination(physeq3, physeq3.mds.bray, color = "Genotype", shape = "HCC..YES.NO.") +
+ordinates_bray_genotype <- plot_ordination(physeq3, physeq3.mds.bray, color = "Genotype") +
   labs(col = "Genotype") +
   coord_fixed(sqrt(evalues_bray[2]/ evalues_bray[1])) +
   stat_ellipse() +
   annotate("text", x = -0.9, y = 0.8, label = Pvalue_permanova_bray_genotype, hjust = 0, size = 3)
 ordinates_bray_genotype
+ggsave("beta-div_Genotype_bray.jpeg", device = "jpeg", path = "R_analysis",  height = 8, width = 7)
 ```
 
 ## Segons aparició de tumors, grup WT
@@ -313,8 +318,10 @@ ordinates_unifrac_WT.HCC <- plot_ordination(physeq.WT, physeqWT.mds.unifrac, col
   labs(col = "HCC..YES.NO.") +
   coord_fixed(sqrt(evalues_unifrac_WT[2]/ evalues_unifrac_WT[1])) +
   stat_ellipse() +
-  annotate("text", x = -0.9, y = 0.6, label = Pvalue_permanova_unifrac_WT.HCC, hjust = 0, size = 3)
+  annotate("text", x = -0.9, y = 0.6, label = Pvalue_permanova_unifrac_WT.HCC, hjust = 0, size = 3) +
+  ggtitle("Beta-diversity [Unifrac] - HCC, WT group")
 ordinates_unifrac_WT.HCC
+ggsave("beta-div_WT_Unifrac.jpeg", path = "R_analysis", dpi = 600, height = 8, width = 7)
   
 # Càlcul matriu de distància Bray-Curtis
 physeqWT.mds.bray <- ordinate(physeq.WT, method = "MDS", distance = "bray")
@@ -325,8 +332,10 @@ ordinates_bray_WT.HCC <- plot_ordination(physeq.WT, physeqWT.mds.bray, color = "
   labs(col = "HCC..YES.NO.") +
   coord_fixed(sqrt(evalues_bray[2]/ evalues_bray[1])) +
   stat_ellipse() +
-  annotate("text", x = -1.2, y = 0.65, label = Pvalue_permanova_bray_WT.HCC, hjust = 0, size = 3)
+  annotate("text", x = -1.2, y = 0.65, label = Pvalue_permanova_bray_WT.HCC, hjust = 0, size = 3) +
+  ggtitle("Beta-diversity [Bray-Curtis] - HCC, WT group")
 ordinates_bray_WT.HCC
+ggsave("beta-div_WT_Bray.jpeg", path = "R_analysis", dpi = 600, height = 8, width = 7)
 ```
 
 ## Segons aparició de tumors, en grup KO
@@ -357,9 +366,11 @@ ordinates_unifrac_KO.HCC <- plot_ordination(physeq.KO, physeqKO.mds.unifrac, col
   labs(col = "HCC..YES.NO.") +
   coord_fixed(sqrt(evalues_unifrac_WT[2]/ evalues_unifrac_WT[1])) +
   stat_ellipse() +
-  annotate("text", x = -0.9, y = 0.6, label = Pvalue_permanova_unifrac_KO.HCC, hjust = 0, size = 3)
+  annotate("text", x = -0.9, y = 0.6, label = Pvalue_permanova_unifrac_KO.HCC, hjust = 0, size = 3) +
+  ggtitle("Beta-diversity [Unifrac] - HCC, KO group")
 ordinates_unifrac_KO.HCC
-  
+ggsave("beta-div_KO_Unifrac.jpeg", path = "R_analysis", dpi = 600, height = 8, width = 7)
+
 # Càlcul matriu de distància Bray-Curtis
 physeqKO.mds.bray <- ordinate(physeq.KO, method = "MDS", distance = "bray")
 evalues_bray_KO <- physeqKO.mds.bray$values$Eigenvalues
@@ -369,8 +380,10 @@ ordinates_bray_KO.HCC <- plot_ordination(physeq.KO, physeqKO.mds.bray, color = "
   labs(col = "HCC..YES.NO.") +
   coord_fixed(sqrt(evalues_bray[2]/ evalues_bray[1])) +
   stat_ellipse() +
-  annotate("text", x = -0.9, y = 1.1, label = Pvalue_permanova_bray_KO.HCC, hjust = 0, size = 3)
+  annotate("text", x = -0.9, y = 1.1, label = Pvalue_permanova_bray_KO.HCC, hjust = 0, size = 3) +
+  ggtitle("Beta-diversity [Bray] - HCC, KO group")
 ordinates_bray_KO.HCC
+ggsave("beta-div_KO_Bray.jpeg", path = "R_analysis", dpi = 600, height = 8, width = 7)
 ```
 
 # 5. Caracterització composicional
@@ -391,7 +404,7 @@ plot_bar(top100_filter, fill = "Phylum") +
 # Grafiquem per familia
 plot_bar(top100_filter, fill = "Family") +
   geom_bar(aes(color=Family, fill=Family), stat="identity", position="stack")
-ggsave("barplot_family.jpeg", device = "jpeg", path = "R_analysis", width = 10)
+ggsave("barplot_family.jpeg", device = "jpeg", path = "R_analysis", width = 10, dpi = 1500)
 ```
 
 # 6. Anàlisi d'abundància diferencial
@@ -424,7 +437,7 @@ Deseq_res_genotype = Deseq_res_genotype[order(Deseq_res_genotype$padj, na.last=N
 alpha = 0.05
 Deseq_res_genotype_filtered <- Deseq_res_genotype[(Deseq_res_genotype$padj < alpha), ]
 Deseq_res_genotype_filtered <- cbind(as(Deseq_res_genotype_filtered, "data.frame"), as(tax_table(physeq3)[rownames(Deseq_res_genotype_filtered), ], "matrix"))
-Deseq_res_genotype_filtered
+kable(Deseq_res_genotype_filtered)
 ```
 
 Aquí ja hem pogut veure que hi ha 4 taxons significativament diferents, 3 dels quals estan sobrerepresentats en els WT - els que son positius per Log2FoldChange. 
@@ -446,6 +459,7 @@ ggplot(Deseq_res_genotype_filtered, aes(y=Family, x=log2FoldChange, color=Phylum
     geom_vline(xintercept = 0.0, color = "gray", size = 0.5) +
     geom_point(size=4) + 
     theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5, size = 10), axis.text.y = element_text(size = 13), legend.text = element_text(size = 13) )
+ggsave("DeSeq.jpeg", path = "R_analysis", width = 10, dpi = 1500)
 ```
 
 ## Segons l'aparició de tumors, independentment del genotip
@@ -487,7 +501,7 @@ Ara ja podem revisar els resultats, establint un llindar de significància:
 Deseq_res_WT = results(physeq_ddseq_WT)
 Deseq_res_WT = Deseq_res_WT[order(Deseq_res_WT$padj, na.last=NA), ]
 Deseq_res_WT <- cbind(as(Deseq_res_WT, "data.frame"), as(tax_table(physeq.WT)[rownames(Deseq_res_WT), ], "matrix"))
-head(Deseq_res_WT)
+kable(head(Deseq_res_WT))
 ```
 Mirant només diferències en WT tampoc trobem diferències entre els que desenvolupen i no tumors. 
 
@@ -508,7 +522,7 @@ Ara ja podem revisar els resultats, establint un llindar de significància:
 Deseq_res_KO = results(physeq_ddseq_KO)
 Deseq_res_KO = Deseq_res_KO[order(Deseq_res_KO$padj, na.last=NA), ]
 Deseq_res_KO <- cbind(as(Deseq_res_KO, "data.frame"), as(tax_table(physeq.KO)[rownames(Deseq_res_KO), ], "matrix"))
-head(Deseq_res_KO)
+kable(head(Deseq_res_KO))
 ```
 
 Igual, tampoc hi ha diferències. 
